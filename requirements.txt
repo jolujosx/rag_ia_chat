@@ -1,19 +1,13 @@
-# Backend y Web
 fastapi[all]==0.110.0
 uvicorn==0.27.1
-
-# Lógica de IA y RAG
 langchain==0.1.12
 langchain-groq==0.1.3
-langchain-huggingface==0.0.1
-sentence-transformers==2.6.0
-chromadb==0.4.24
-
-# Manejo de PDFs y OCR
 pypdf==4.1.0
+python-dotenv==1.0.1
+chromadb==0.4.24
+sentence-transformers==2.6.0
+langchain-huggingface==0.0.1
 pytesseract
 pdf2image
 Pillow
-
-# Utilidades
-python-dotenv==1.0.1
+python-jose[cryptography]
