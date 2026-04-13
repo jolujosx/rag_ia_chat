@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🇪🇨 Analista Legal IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .typing::after { content: '...'; animation: typing 1.5s infinite; }
+        @keyframes typing { 0%, 20% { content: '.'; } 40%, 60% { content: '..'; } 80%, 100% { content: '...'; } }
+        #chat { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans">
+
+<header class="bg-blue-700 text-white p-4 text-center shadow-lg">
+    <h1 class="text-xl font-bold">🇪🇨 Analista Legal IA</h1>
+</header>
+
+<div id="loginSection" class="p-4 bg-white border-b shadow-sm">
+    <div class="max-w-2xl mx-auto flex gap-2">
+        <input id="username" placeholder="Usuario:admin" class="border p-2 rounded w-1/4">
+        <input id="password" type="password" placeholder="Contraseña:1234" class="border p-2 rounded w-1/4">
+        <button onclick="login()" class="bg-blue-600 text-white px-4 rounded">Login</button>
+    </div>
+</div>
+
+<main id="chat" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto w-full">
+    <div class="bg-blue-50 p-3 rounded border text-blue-800">
+        👋 Bienvenido. Inicia sesión y sube un PDF para comenzar.
+    </div>
+</main>
+
+<footer class="p-4 bg-white border-t">
+    <div class="max-w-4xl mx-auto space-y-3">
+        <div class="flex items-center gap-3">
+            <input type="file" id="fileInput" class="hidden" accept=".pdf">
+            <button onclick="document.getElementById('fileInput').click()" class="bg-gray-200 px-4 py-2 rounded">📄 Subir PDF</button>
+            <span id="fileName" class="text-sm text-gray-500"></span>
+        </div>
+        <div class="flex gap-2">
+            <input id="pregunta" placeholder="Haz una pregunta..." class="flex-1 border rounded p-2">
+            <button id="btnEnviar" onclick="enviarPregunta()" class="bg-blue-600 text-white px-4 rounded">Enviar</button>
+        </div>
+    </div>
+</footer>
+
+<script>
+let token = "";
+const chat = document.getElementById('chat');
+const fileInput = document.getElementById('fileInput');
+
+function agregar(html) {
+    chat.innerHTML += html;
+    chat.scrollTop = chat.scrollHeight;
+}
+
+async function parseResponse(res) {
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { throw new Error(text); }
+}
+
+async function login() {
+    const formData = new FormData();
+    formData.append("username", document.getElementById("username").value);
+    formData.append("password", document.getElementById("password").value);
+
+    try {
+        const res = await fetch("/login", { method: "POST", body: formData });
+        const data = await parseResponse(res);
+        if (!res.ok) throw new Error(data.detail);
+
+        token = data.access_token;
+        document.getElementById("loginSection").style.display = "none";
+        chat.innerHTML = "";
+        agregar(`<div class="bg-green-100 p-2 rounded">✅ Login exitoso</div>`);
+    } catch (err) {
+        agregar(`<div class="bg-red-100 p-2 rounded">❌ ${err.message}</div>`);
+    }
+}
+
+fileInput.onchange = async () => {
+    const file = fileInput.files[0];
+    if (!token) return alert("Inicia sesión primero");
+    if (file.type !== "application/pdf") return alert("Solo PDFs");
+
+    document.getElementById("fileName").innerText = file.name;
+    agregar(`<div class="bg-yellow-50 p-2">🔄 Procesando documento...</div>`);
+
+    const formData = new FormData();
+    formData.append("archivo", file);
+
+    try {
+        const res = await fetch("/entrenar", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token },
+            body: formData
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw new Error(data.detail);
+
+        agregar(`<div class="bg-green-100 p-2 rounded">✅ Listo (${data.fragmentos} fragmentos)</div>`);
+    } catch (err) {
+        // 🆕 Mensaje inteligente para errores de PDF
+        let msg = err.message;
+        if (msg.includes("texto") || msg.includes("vacío")) {
+            msg = "⚠️ <b>PDF no compatible:</b> El documento parece ser una imagen escaneada. Sube un PDF nativo (Word/Docs) o instala Tesseract-OCR en tu servidor.";
+        }
+        agregar(`<div class="bg-red-100 p-2 rounded">❌ ${msg}</div>`);
+    }
+};
+
+async function enviarPregunta() {
+    const input = document.getElementById("pregunta");
+    const texto = input.value.trim();
+    if (!token) return alert("Inicia sesión");
+    if (!texto) return;
+
+    agregar(`<div class="bg-white p-2 border rounded ml-auto w-fit">${texto}</div>`);
+    input.value = "";
+    
+    const formData = new FormData();
+    formData.append("pregunta", texto);
+
+    try {
+        const res = await fetch("/preguntar", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token },
+            body: formData
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw new Error(data.detail);
+
+        agregar(`<div class="bg-blue-100 p-2 rounded w-fit">🤖 ${data.respuesta}</div>`);
+    } catch (err) {
+        agregar(`<div class="bg-red-100 p-2 rounded">❌ ${err.message}</div>`);
+    }
+}
+</script>
+</body>
+</html>
